@@ -179,8 +179,8 @@ func NewApp(content *ContentStore, meta *MetaStore) *App {
 	r.HandleFunc("/{user}/{repo}/objects/batch", app.BatchHandler).Methods("POST").MatcherFunc(MetaMatcher)
 
 	route := "/{user}/{repo}/objects/{oid}"
-	r.HandleFunc(route, app.requireAuth(app.GetContentHandler)).Methods("GET", "HEAD").MatcherFunc(ContentMatcher)
-	r.HandleFunc(route, app.requireAuth(app.GetMetaHandler)).Methods("GET", "HEAD").MatcherFunc(MetaMatcher)
+	r.HandleFunc(route, app.GetContentHandler).Methods("GET", "HEAD").MatcherFunc(ContentMatcher)
+	r.HandleFunc(route, app.GetMetaHandler).Methods("GET", "HEAD").MatcherFunc(MetaMatcher)
 	r.HandleFunc(route, app.requireAuth(app.PutHandler)).Methods("PUT").MatcherFunc(ContentMatcher)
 
 	r.HandleFunc("/{user}/{repo}/objects", app.requireAuth(app.PostHandler)).Methods("POST").MatcherFunc(MetaMatcher)
@@ -190,7 +190,7 @@ func NewApp(content *ContentStore, meta *MetaStore) *App {
 	r.HandleFunc("/{user}/{repo}/locks", app.requireAuth(app.CreateLockHandler)).Methods("POST").MatcherFunc(MetaMatcher)
 	r.HandleFunc("/{user}/{repo}/locks/{id}/unlock", app.requireAuth(app.DeleteLockHandler)).Methods("POST").MatcherFunc(MetaMatcher)
 
-	r.HandleFunc("/objects/batch", app.requireAuth(app.BatchHandler)).Methods("POST").MatcherFunc(MetaMatcher)
+	r.HandleFunc("/objects/batch", app.BatchHandler).Methods("POST").MatcherFunc(MetaMatcher)
 
 	route = "/objects/{oid}"
 	r.HandleFunc(route, app.GetContentHandler).Methods("GET", "HEAD").MatcherFunc(ContentMatcher)
