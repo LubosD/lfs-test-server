@@ -11,18 +11,19 @@ import (
 // environment variables, prefixed by keyPrefix. Default values can be added
 // via tags.
 type Configuration struct {
-	Listen      string `config:"tcp://:8080"`
-	Host        string `config:"localhost:8080"`
-	MetaDB      string `config:"lfs.db"`
-	ContentPath string `config:"lfs-content"`
-	AdminUser   string `config:""`
-	AdminPass   string `config:""`
-	Cert        string `config:""`
-	Key         string `config:""`
-	Scheme      string `config:"http"`
-	Public      string `config:"public"`
-	UseTus      string `config:"false"`
-	TusHost     string `config:"localhost:1080"`
+	Listen         string `config:"tcp://:8080"`
+	Host           string `config:"localhost:8080"`
+	MetaDB         string `config:"lfs.db"`
+	ContentPath    string `config:"lfs-content"`
+	AdminUser      string `config:""`
+	AdminPass      string `config:""`
+	Cert           string `config:""`
+	Key            string `config:""`
+	Scheme         string `config:"http"`
+	Public         string `config:"public"`
+	UseTus         string `config:"false"`
+	TusHost        string `config:"localhost:1080"`
+	PublicDownload string `config:"false"`
 }
 
 func (c *Configuration) IsHTTPS() bool {
@@ -39,6 +40,18 @@ func (c *Configuration) IsPublic() bool {
 
 func (c *Configuration) IsUsingTus() bool {
 	switch Config.UseTus {
+	case "1", "true", "TRUE":
+		return true
+	}
+	return false
+}
+
+func (c *Configuration) IsPublicDownloadAllowed() bool {
+	if c.IsPublic() {
+		return true
+	}
+
+	switch Config.PublicDownload {
 	case "1", "true", "TRUE":
 		return true
 	}

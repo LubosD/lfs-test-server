@@ -176,7 +176,7 @@ func NewApp(content *ContentStore, meta *MetaStore) *App {
 
 	r := mux.NewRouter()
 
-	r.HandleFunc("/{user}/{repo}/objects/batch", app.requireAuth(app.BatchHandler)).Methods("POST").MatcherFunc(MetaMatcher)
+	r.HandleFunc("/{user}/{repo}/objects/batch", app.BatchHandler).Methods("POST").MatcherFunc(MetaMatcher)
 
 	route := "/{user}/{repo}/objects/{oid}"
 	r.HandleFunc(route, app.requireAuth(app.GetContentHandler)).Methods("GET", "HEAD").MatcherFunc(ContentMatcher)
@@ -193,8 +193,8 @@ func NewApp(content *ContentStore, meta *MetaStore) *App {
 	r.HandleFunc("/objects/batch", app.requireAuth(app.BatchHandler)).Methods("POST").MatcherFunc(MetaMatcher)
 
 	route = "/objects/{oid}"
-	r.HandleFunc(route, app.requireAuth(app.GetContentHandler)).Methods("GET", "HEAD").MatcherFunc(ContentMatcher)
-	r.HandleFunc(route, app.requireAuth(app.GetMetaHandler)).Methods("GET", "HEAD").MatcherFunc(MetaMatcher)
+	r.HandleFunc(route, app.GetContentHandler).Methods("GET", "HEAD").MatcherFunc(ContentMatcher)
+	r.HandleFunc(route, app.GetMetaHandler).Methods("GET", "HEAD").MatcherFunc(MetaMatcher)
 	r.HandleFunc(route, app.requireAuth(app.PutHandler)).Methods("PUT").MatcherFunc(ContentMatcher)
 
 	r.HandleFunc("/objects", app.requireAuth(app.PostHandler)).Methods("POST").MatcherFunc(MetaMatcher)
@@ -225,6 +225,12 @@ func (a *App) Serve(l net.Listener) error {
 
 // GetContentHandler gets the content from the content store
 func (a *App) GetContentHandler(w http.ResponseWriter, r *http.Request) {
+	if !Config.IsPublicDownloadAllowed() {
+		if !a.checkAuth(w, r) {
+			return
+		}
+	}
+
 	rv := unpack(r)
 	meta, err := a.metaStore.Get(rv)
 	if err != nil {
@@ -259,6 +265,12 @@ func (a *App) GetContentHandler(w http.ResponseWriter, r *http.Request) {
 
 // GetMetaHandler retrieves metadata about the object
 func (a *App) GetMetaHandler(w http.ResponseWriter, r *http.Request) {
+	if !Config.IsPublicDownloadAllowed() {
+		if !a.checkAuth(w, r) {
+			return
+		}
+	}
+
 	rv := unpack(r)
 	meta, err := a.metaStore.Get(rv)
 	if err != nil {
@@ -301,6 +313,12 @@ func (a *App) PostHandler(w http.ResponseWriter, r *http.Request) {
 // BatchHandler provides the batch api
 func (a *App) BatchHandler(w http.ResponseWriter, r *http.Request) {
 	bv := unpackBatch(r)
+
+	if bv.Operation != "download" || !Config.IsPublicDownloadAllowed() {
+		if !a.checkAuth(w, r) {
+			return
+		}
+	}
 
 	var responseObjects []*Representation
 
@@ -585,19 +603,25 @@ func (a *App) Represent(rv *RequestVars, meta *MetaObject, download, upload, use
 	return rep
 }
 
+func (a *App) checkAuth(w http.ResponseWriter, r *http.Request) bool {
+	if !Config.IsPublic() {
+		user, password, _ := r.BasicAuth()
+		if user, ret := a.metaStore.Authenticate(user, password); !ret {
+			w.Header().Set("WWW-Authenticate", "Basic realm=git-lfs-server")
+			writeStatus(w, r, 401)
+			return false
+		} else {
+			context.Set(r, "USER", user)
+		}
+	}
+	return true
+}
+
 func (a *App) requireAuth(h http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if !Config.IsPublic() {
-			user, password, _ := r.BasicAuth()
-			if user, ret := a.metaStore.Authenticate(user, password); !ret {
-				w.Header().Set("WWW-Authenticate", "Basic realm=git-lfs-server")
-				writeStatus(w, r, 401)
-				return
-			} else {
-				context.Set(r, "USER", user)
-			}
+		if a.checkAuth(w, r) {
+			h(w, r)
 		}
-		h(w, r)
 	}
 }
 
